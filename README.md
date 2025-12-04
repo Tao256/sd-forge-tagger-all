@@ -55,3 +55,7 @@ You must place all these files into the following folder:
 Note: The filenames MUST match the names listed above for the extension to work correctly.
 
 P.S. I haven't figured out how to write the automatic model download function yet. If anyone in the community knows how to implement this, please feel free to contribute!
+
+---------------------------------------------------------------
+
+![WD14 Tagger Neo 介面截圖]([https://i.imgur.com/YourImageHost/screenshot.png](https://raw.githubusercontent.com/jasonwan60229-ship-it/sd-forge-wd14-tagger-neo/refs/heads/main/01.png))
