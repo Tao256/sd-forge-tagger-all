@@ -3,6 +3,8 @@
 ---------------------------------------------------------------
 這是專門為了sd-webui-forge-neo製作的WD14 Tagger
 
+https://github.com/Haoming02/sd-webui-forge-classic/tree/neo
+
 第一次使用時會自動下載模型到\extensions\sd-forge-wd14-tagger-neo\models 資料夾中 (要等一下)
 ---------------------------------------------------------------
 
