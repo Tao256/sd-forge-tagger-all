@@ -59,11 +59,7 @@ def get_send_js_code(target_tab_type):
     """
     return f"""
         async function(inputVal) {{
-            console.log("WD14 Tagger: JS 啟動，目標", '{target_tab_type}');
-            
-            // --- 1. 資料解析 (解決 SyntaxError) ---
             var data = {{}};
-            // Gradio 有時會將資料包在陣列裡
             var rawData = Array.isArray(inputVal) ? inputVal[0] : inputVal;
 
             if (typeof rawData === 'string') {{
@@ -71,7 +67,6 @@ def get_send_js_code(target_tab_type):
                     data = JSON.parse(rawData);
                 }} catch (e) {{
                     console.error("WD14 Tagger: JSON 解析失敗", e);
-                    // 嘗試直接當作 tags 使用 (如果上游出錯)
                     data = {{ tags: rawData }}; 
                 }}
             }} else if (typeof rawData === 'object') {{
@@ -83,7 +78,6 @@ def get_send_js_code(target_tab_type):
                 return [];
             }}
 
-            // --- 2. 定義目標 ID ---
             var targetTabContentId = 'tab_{target_tab_type}'; // 使用您指定的 ID: tab_txt2img 或 tab_img2img
             var tabContent = gradioApp().getElementById(targetTabContentId);
 
@@ -92,18 +86,17 @@ def get_send_js_code(target_tab_type):
                 return [];
             }}
 
-            // --- 3. 寫入提示詞 (尋找該 ID 區塊內的第一個 textarea) ---
+            // 尋找該 ID 區塊內的第一個 textarea
             var prompt_textarea = tabContent.querySelector('textarea');
             if (prompt_textarea) {{
                 prompt_textarea.value = data.tags;
                 prompt_textarea.dispatchEvent(new Event('input', {{ bubbles: true }}));
                 prompt_textarea.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                console.log("WD14 Tagger: 提示詞已寫入");
             }} else {{
                 console.error("WD14 Tagger: 在 " + targetTabContentId + " 中找不到 textarea");
             }}
 
-            // --- 4. 寫入圖片 (僅 Img2Img) ---
+            //寫入圖片 (僅 Img2Img)
             if ('{target_tab_type}' === 'img2img' && data.image_b64) {{
                 try {{
                     // 尋找該 ID 區塊內的圖片上傳框
@@ -116,7 +109,6 @@ def get_send_js_code(target_tab_type):
                         dt.items.add(file);
                         image_input.files = dt.files;
                         image_input.dispatchEvent(new Event('change', {{ bubbles: true }}));
-                        console.log("WD14 Tagger: 圖片已傳送");
                         // 等待圖片載入完成，避免切換分頁過快導致失敗
                         await new Promise(r => setTimeout(r, 300)); 
                     }}
@@ -125,14 +117,11 @@ def get_send_js_code(target_tab_type):
                 }}
             }}
 
-            // --- 5. 切換分頁 (關鍵修正：使用 ID 反查按鈕索引) ---
             // 邏輯：找到 tabs 容器 -> 找到所有分頁內容 -> 找出目標 ID 是第幾個 -> 點擊導航列對應的第幾個按鈕
             var tabsContainer = gradioApp().getElementById('tabs');
             if (!tabsContainer) tabsContainer = gradioApp().querySelector('.tabs');
 
             if (tabsContainer) {{
-                // 找出所有分頁內容 (Gradio 中 class 通常為 tabitem)
-                // 為了準確，我們直接找 tabsContainer 下的直接子 div
                 var allTabDivs = Array.from(tabsContainer.children).filter(
                     node => node.tagName === 'DIV' && node.classList.contains('tabitem')
                 );
@@ -147,12 +136,10 @@ def get_send_js_code(target_tab_type):
                 }}
 
                 if (targetIndex !== -1) {{
-                    // 找到導航按鈕列
                     var nav = tabsContainer.querySelector('.tab-nav');
                     if (nav) {{
                         var buttons = nav.querySelectorAll('button');
                         if (buttons && buttons[targetIndex]) {{
-                            console.log("WD14 Tagger: 點擊導航按鈕 index:", targetIndex);
                             buttons[targetIndex].click();
                         }} else {{
                             console.error("WD14 Tagger: 找不到對應索引的按鈕");
@@ -188,12 +175,28 @@ def update_interface_language(lang):
         gr.update(value=I18N["Send to Txt2Img"][lang]),
         gr.update(value=I18N["Send to Img2Img"][lang]),
         gr.update(label=I18N["Accordion"][lang]),
+        gr.update(label=I18N["Language"][lang]),
+        gr.update(label=I18N["Select Model"][lang]),
+        gr.update(label=I18N["Select Lora"][lang]),
+        gr.update(label=I18N["Text Input (for specific tasks)"][lang]),
+        gr.update(label=I18N["Num Beams"][lang]),
+        gr.update(label=I18N["Max token"][lang]),
+        gr.update(label=I18N["Select Task"][lang]),
+        gr.update(label=I18N["Select Precision"][lang]),
+        gr.update(label=I18N["Select Attention Implementation"][lang]),
+        gr.update(label=I18N["Fill Mask"][lang]),
+        gr.update(label=I18N["Keep Model Loaded"][lang]),
+        gr.update(value=I18N["Generate"][lang]),
+        gr.update(label=I18N["Output Image"][lang]),
+        gr.update(label=I18N["Output Mask Image"][lang]),
+        gr.update(label=I18N["Output Data (JSON)"][lang]),
+        gr.update(label=I18N["Extracted Tags"][lang]),
     ]
 
 
 def on_ui_tabs():
     wd14_model_choices = list(tagger_backend.model_configs.keys())
-    default_lang = "中文"
+    default_lang = "简体中文"
 
     with gr.Blocks(analytics_enabled=False) as tagger_interface:
         with gr.Tabs(elem_id="tabs"):
@@ -204,8 +207,9 @@ def on_ui_tabs():
                         input_image = gr.Image(
                             label=I18N["Input Image"][default_lang],
                             type="pil",
-                            width=512,
-                            object_fit="scale-down",
+                            sources=["upload", "webcam"],
+                            height=520,
+                            object_fit="contain",
                             elem_id="wd14_input_image",
                         )
 
@@ -213,15 +217,10 @@ def on_ui_tabs():
                             model_selector = gr.Dropdown(
                                 label=I18N["Select Tagger Model"][default_lang],
                                 choices=wd14_model_choices,
-                                value=(
-                                    wd14_model_choices[0]
-                                    if wd14_model_choices
-                                    else None
-                                ),
+                                value=wd14_model_choices[0],
                                 allow_custom_value=False,
                                 elem_id="wd14_model_selector",
                             )
-
                         with gr.Row():
                             threshold_slider = gr.Slider(
                                 minimum=0.0,
@@ -230,20 +229,25 @@ def on_ui_tabs():
                                 step=0.05,
                                 label=I18N["Threshold"][default_lang],
                             )
-
                         with gr.Row():
                             interrogate_btn = gr.Button(
                                 I18N["Interrogate"][default_lang],
                                 variant="primary",
                                 elem_id="wd14_run_btn",
                             )
-                            unload_btn = gr.Button(I18N["Unload Model"][default_lang])
+                            unload_btn = gr.Button(
+                                I18N["Unload Model"][default_lang],
+                                variant="secondary",
+                                elem_id="wd14_unload_btn",
+                            )
 
                     with gr.Column(variant="panel"):
                         tags_output = gr.Textbox(
                             label=I18N["Output Tags"][default_lang],
-                            lines=5,
+                            lines=10,
                             show_copy_button=True,
+                            interactive=False,
+                            placeholder="output tags will appear here",
                             elem_id="wd14_tags_output",
                         )
                         rating_output = gr.Label(
@@ -251,15 +255,15 @@ def on_ui_tabs():
                             elem_id="wd14_rating_output",
                         )
 
-                        with gr.Accordion(
-                            I18N["Accordion"][default_lang], open=True
-                        ) as send_accordion:
+                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion:
                             with gr.Row():
                                 send_to_txt2img = gr.Button(
-                                    I18N["Send to Txt2Img"][default_lang]
+                                    I18N["Send to Txt2Img"][default_lang],
+                                    elem_id="wd14_send_txt2img_btn",
                                 )
                                 send_to_img2img = gr.Button(
-                                    I18N["Send to Img2Img"][default_lang]
+                                    I18N["Send to Img2Img"][default_lang],
+                                    elem_id="wd14_send_img2img_btn",
                                 )
                 # --- 事件綁定 ---
                 interrogate_btn.click(
@@ -268,9 +272,7 @@ def on_ui_tabs():
                     outputs=[tags_output, rating_output],
                 )
 
-                unload_btn.click(
-                    fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output]
-                )
+                unload_btn.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output])
 
                 send_to_txt2img.click(
                     fn=get_transfer_data,
@@ -290,95 +292,107 @@ def on_ui_tabs():
                 with gr.Row():
                     # input
                     with gr.Column(variant="panel"):
-                        if "sources" in inspect.signature(gr.Image).parameters:
-                            image2 = gr.Image(
-                                sources=["upload"], 
-                                interactive=True, 
-                                type="pil",
-                                width=512,
-                                object_fit="scale-down",
-                            )
-                        else:
-                            image2 = gr.Image(interactive=True, type="pil", width=512,
-                                object_fit="scale-down",)
+                        image2 = gr.Image(
+                            label=I18N["Input Image"][default_lang],
+                            sources=["upload", "webcam"],
+                            type="pil",
+                            height=520,
+                            object_fit="contain",
+                            elem_id="florence2_input_image",
+                        )
 
                         model_name = gr.Dropdown(
-                            label="Select Model",
+                            label=I18N["Select Model"][default_lang],
                             choices=florence2_backend.model_list,
                             value=florence2_backend.model_list[0],
+                            elem_id="florence2_model_selector",
                         )
                         lora_name = gr.Dropdown(
-                            label="Select Lora",
+                            label=I18N["Select Lora"][default_lang],
                             choices=florence2_backend.lora_list,
                             value=florence2_backend.lora_list[0],
+                            elem_id="florence2_lora_selector",
                         )
 
                         text_input = gr.Textbox(
-                            label="Text Input (for specific tasks)",
+                            label=I18N["Text Input (for specific tasks)"][default_lang],
                             lines=2,
                             placeholder="Only for referring_expression_segmentation, caption_to_phrase_grounding, docvqa",
+                            elem_id="florence2_text_input",
                         )
 
                         with gr.Row():
-                            num_beams=gr.Number(
-                                label="Num Beams",
+                            num_beams = gr.Number(
+                                label=I18N["Num Beams"][default_lang],
                                 value=3,
                                 minimum=1,
                                 maximum=10,
+                                elem_id="florence2_num_beams",
                             )
 
                             max_new_token = gr.Number(
-                                label="Max new token",
+                                label=I18N["Max token"][default_lang],
                                 value=1024,
                                 minimum=1,
                                 maximum=4096,
+                                elem_id="florence2_max_token",
                             )
-                            task=gr.Dropdown(
-                                label="Select Task",
+                            task = gr.Dropdown(
+                                label=I18N["Select Task"][default_lang],
                                 choices=florence2_backend.prompts.keys(),
                                 value=list(florence2_backend.prompts.keys())[0],
+                                elem_id="florence2_task_selector",
                             )
-                        fill_mask=gr.Checkbox(label="Fill Mask", value=False)
-                        keep_model_loaded=gr.Checkbox(label="Keep Model Loaded", value=False)
 
-                        generate_btn = gr.Button(value="Generate", variant="primary")
+                        with gr.Row():
+                            dtype = gr.Dropdown(
+                                label=I18N["Select Precision"][default_lang],
+                                choices=florence2_backend.dtype,
+                                value=florence2_backend.dtype[1],
+                                elem_id="florence2_dtype_selector",
+                            )
+                            attention = gr.Dropdown(
+                                label=I18N["Select Attention Implementation"][default_lang],
+                                choices=florence2_backend.attention_list,
+                                value=florence2_backend.attention_list[2],
+                                elem_id="florence2_attention_selector",
+                            )
 
+                        fill_mask = gr.Checkbox(label=I18N["Fill Mask"][default_lang], value=True, elem_id="florence2_fill_mask")
+                        keep_model_loaded = gr.Checkbox(label=I18N["Keep Model Loaded"][default_lang], value=False, elem_id="florence2_keep_model_loaded")
+
+                        generate_btn = gr.Button(value=I18N["Generate"][default_lang], variant="primary", elem_id="florence2_generate_btn")
 
                     # output
                     with gr.Column(variant="panel"):
                         output_img = gr.Image(
-                        label="标注后图片",
-                        type="pil",
-                        width=400,
-                        object_fit="scale-down",
+                            label=I18N["Output Image"][default_lang],
+                            type="pil",
+                            height=600,
+                            object_fit="contain",
+                            elem_id="florence2_output_image",
                         )
                         output_mask_img = gr.Image(
-                            label="掩码图",
+                            label=I18N["Output Mask Image"][default_lang],
                             type="pil",
-                            width=400,
-                            object_fit="scale-down",
+                            height=600,
+                            object_fit="contain",
+                            elem_id="florence2_output_mask_image",
                         )
 
-                        tags = gr.Textbox(label="Extracted Tags")
-                        output_data = gr.HTML(label="Output Data (JSON)")
+                        output_data = gr.Textbox(label=I18N["Output Data (JSON)"][default_lang], lines=10, interactive=False, elem_id="florence2_output_data")
+                        tags = gr.Textbox(label=I18N["Extracted Tags"][default_lang], lines=5, interactive=False, elem_id="florence2_extracted_tags")
 
-
-                        with gr.Accordion(
-                            I18N["Accordion"][default_lang], open=True
-                        ) as send_accordion:
+                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion:
                             with gr.Row():
-                                send_to_txt2img = gr.Button(
-                                    I18N["Send to Txt2Img"][default_lang]
-                                )
-                                send_to_img2img = gr.Button(
-                                    I18N["Send to Img2Img"][default_lang]
-                                )
+                                send_to_txt2img = gr.Button(I18N["Send to Txt2Img"][default_lang], elem_id="florence2_send_txt2img_btn")
+                                send_to_img2img = gr.Button(I18N["Send to Img2Img"][default_lang], elem_id="florence2_send_img2img_btn")
 
-                    #事件绑定
+                    # 事件绑定
                     generate_btn.click(
                         fn=florence2_backend.encode,
-                        inputs=[image2,text_input, model_name,task,fill_mask,keep_model_loaded,num_beams, max_new_token],
-                        outputs=[output_img,output_mask_img,tags,output_data],
+                        inputs=[image2, text_input, model_name, dtype, attention, lora_name, task, fill_mask, keep_model_loaded, num_beams, max_new_token],
+                        outputs=[output_img, output_mask_img, tags, output_data],
                     )
 
                     send_to_txt2img.click(
@@ -390,7 +404,7 @@ def on_ui_tabs():
 
                     send_to_img2img.click(
                         fn=get_transfer_data,
-                        inputs=[tags, image2], 
+                        inputs=[tags, image2],
                         outputs=[],
                         _js=get_send_js_code("img2img"),
                     )
@@ -400,11 +414,11 @@ def on_ui_tabs():
             # # qwen3_vl
             # with gr.Tab(label="qwen3_vl", id="qwen3_vl_tab"):
             #     pass
-            #设置
+            # 设置
             with gr.Tab(label="setting", id="setting_tab"):
-                with gr.Row():
+                with gr.Column():
                     lang_dropdown = gr.Dropdown(
-                        choices=["中文", "English", "日本語"],
+                        choices=["简体中文", "繁體中文", "English"],
                         value=default_lang,
                         label=I18N["Language"][default_lang],
                         elem_id="wd14_lang_selector",
@@ -427,7 +441,6 @@ def on_ui_tabs():
                         send_accordion,
                     ],
                 )
-
 
     return [(tagger_interface, "Tagger", "tagger_tab")]
 

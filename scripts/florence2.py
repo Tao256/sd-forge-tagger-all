@@ -58,6 +58,10 @@ prompts = {
             'prompt_gen_mixed_caption_plus': '<MIXED_CAPTION_PLUS>',
         }
 
+dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
+
+attention_list = ['flash_attention_2', 'sdpa', 'eager']
+
 def load_model(model_path: str, attention: str, dtype: torch.dtype, offload_device: torch.device):
     from scripts.config.modeling_florence2 import Florence2ForConditionalGeneration, Florence2Config
     from transformers import CLIPImageProcessor, BartTokenizerFast
@@ -121,6 +125,8 @@ class Florence2:
         self.model_list = model_list
         self.lora_list = lora_list
         self.prompts = prompts
+        self.dtype = list(dtype.keys())
+        self.attention_list = attention_list
         self.device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.offload_device=torch.device("cpu")
 
@@ -138,8 +144,6 @@ class Florence2:
     def loadmodel(self, model, precision, attention, lora=None, convert_to_safetensors=False):
         if model not in self.model_list:
             raise ValueError(f"Model {model} is not in the supported model list.")
-
-        dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}[precision]
 
         model_name = model.rsplit('/', 1)[-1]
         model_path = os.path.join(self.models_dir, model_name)
@@ -163,10 +167,10 @@ class Florence2:
                         print(f"Original {model_weight_path} file deleted.")
 
         if version.parse(transformers.__version__) >= version.parse('5.0.0'):
-            model, processor = load_model(model_path, attention, dtype, self.offload_device)
+            model, processor = load_model(model_path, attention, dtype[precision], self.offload_device)
         else:
             from scripts.config.modeling_florence2 import Florence2ForConditionalGeneration
-            model = Florence2ForConditionalGeneration.from_pretrained(model_path, attn_implementation=attention, dtype=dtype).to(self.offload_device)
+            model = Florence2ForConditionalGeneration.from_pretrained(model_path, attn_implementation=attention, dtype=dtype[precision]).to(self.offload_device)
             processor = AutoProcessor.from_pretrained(model_path, trust_remote_code=True)
 
         if lora is not None:
@@ -177,7 +181,7 @@ class Florence2:
         florence2_model = {
             'model': model,
             'processor': processor,
-            'dtype': dtype
+            'dtype': dtype[precision]
             }
 
         return florence2_model
@@ -252,14 +256,14 @@ class Florence2:
         mask_pil = Image.fromarray(mask_np, mode='L')
         return mask_pil
 
-    def encode(self, image, text_input, model_path, task, fill_mask, keep_model_loaded=False, 
+    def encode(self, image, text_input, model_path,precision,attention,lora, task, fill_mask, keep_model_loaded=False, 
             num_beams=3, max_new_tokens=1024, do_sample=True, output_mask_select="", seed=None):
         image=np.array(image) #turn to numpy array
         # 处理3维张量 (h, w, c)
         height, width, _ = image.shape
         annotated_image_tensor = None
         mask_tensor = None
-        florence2_model = self.loadmodel(model_path, precision="fp16", attention="eager", lora=None)
+        florence2_model = self.loadmodel(model_path, precision, attention, lora)
         processor = florence2_model['processor']
         model = florence2_model['model']
         dtype = florence2_model['dtype']
