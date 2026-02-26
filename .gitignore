@@ -1,0 +1,9 @@
+.pyc
+.vscode
+.idea
+.venv
+__pycache__
+tagger_deps_installed
+
+
+

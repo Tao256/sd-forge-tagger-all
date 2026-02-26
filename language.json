@@ -1,0 +1,57 @@
+{
+    "Input Image": {
+        "中文": "輸入圖片",
+        "English": "Input Image",
+        "日本語": "入力画像"
+    },
+    "Select Tagger Model": {
+        "中文": "選擇 Tagger 模型",
+        "English": "Select Tagger Model",
+        "日本語": "Taggerモデルを選択"
+    },
+    "Threshold": {
+        "中文": "標籤閥值 (Threshold)",
+        "English": "Tag Threshold",
+        "日本語": "タグ閾値"
+    },
+    "Interrogate": {
+        "中文": "開始分析 (Interrogate)",
+        "English": "Interrogate",
+        "日本語": "解析開始"
+    },
+    "Unload Model": {
+        "中文": "釋放模型 (Unload Model)",
+        "English": "Unload Model",
+        "日本語": "モデル解放"
+    },
+    "Output Tags": {
+        "中文": "生成的標籤 (Tags)",
+        "English": "Generated Tags",
+        "日本語": "生成されたタグ"
+    },
+    "Rating": {
+        "中文": "分級 (Rating)",
+        "English": "Rating",
+        "日本語": "レーティング"
+    },
+    "Send to Txt2Img": {
+        "中文": "傳送到 文生圖 (Txt2Img)",
+        "English": "Send to Txt2Img",
+        "日本語": "Txt2Imgに送信"
+    },
+    "Send to Img2Img": {
+        "中文": "傳送到 圖生圖 (Img2Img)",
+        "English": "Send to Img2Img",
+        "日本語": "Img2Imgに送信"
+    },
+    "Language": {
+        "中文": "語言 (Language)",
+        "English": "Language",
+        "日本語": "言語"
+    },
+    "Accordion": {
+        "中文": "傳送到其他分頁",
+        "English": "Send to other tabs",
+        "日本語": "他のタブへ送信"
+    }
+}
