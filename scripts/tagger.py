@@ -165,6 +165,7 @@ def pass_tags_to_js(tags):
 def update_interface_language(lang):
     """根據選擇的語言更新所有介面元件"""
     return [
+        #--wd14--
         gr.update(label=I18N["Input Image"][lang]),
         gr.update(label=I18N["Select Tagger Model"][lang]),
         gr.update(label=I18N["Threshold"][lang]),
@@ -175,7 +176,8 @@ def update_interface_language(lang):
         gr.update(value=I18N["Send to Txt2Img"][lang]),
         gr.update(value=I18N["Send to Img2Img"][lang]),
         gr.update(label=I18N["Accordion"][lang]),
-        gr.update(label=I18N["Language"][lang]),
+        #--florence2--
+        gr.update(label=I18N["Input Image"][lang]),   
         gr.update(label=I18N["Select Model"][lang]),
         gr.update(label=I18N["Select Lora"][lang]),
         gr.update(label=I18N["Text Input (for specific tasks)"][lang]),
@@ -191,6 +193,10 @@ def update_interface_language(lang):
         gr.update(label=I18N["Output Mask Image"][lang]),
         gr.update(label=I18N["Output Data (JSON)"][lang]),
         gr.update(label=I18N["Extracted Tags"][lang]),
+        gr.update(value=I18N["Send to Txt2Img"][lang]),
+        gr.update(value=I18N["Send to Img2Img"][lang]),
+        gr.update(label=I18N["Accordion"][lang]),
+        gr.update(label=I18N["Language"][lang]),
     ]
 
 
@@ -247,7 +253,7 @@ def on_ui_tabs():
                             lines=10,
                             show_copy_button=True,
                             interactive=False,
-                            placeholder="output tags will appear here",
+                            placeholder="output tags",
                             elem_id="wd14_tags_output",
                         )
                         rating_output = gr.Label(
@@ -255,13 +261,13 @@ def on_ui_tabs():
                             elem_id="wd14_rating_output",
                         )
 
-                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion:
+                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion1:
                             with gr.Row():
-                                send_to_txt2img = gr.Button(
+                                send_to_txt2img1 = gr.Button(
                                     I18N["Send to Txt2Img"][default_lang],
                                     elem_id="wd14_send_txt2img_btn",
                                 )
-                                send_to_img2img = gr.Button(
+                                send_to_img2img1 = gr.Button(
                                     I18N["Send to Img2Img"][default_lang],
                                     elem_id="wd14_send_img2img_btn",
                                 )
@@ -274,14 +280,14 @@ def on_ui_tabs():
 
                 unload_btn.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output])
 
-                send_to_txt2img.click(
+                send_to_txt2img1.click(
                     fn=get_transfer_data,
                     inputs=[tags_output, input_image],
                     outputs=[],
                     _js=get_send_js_code("txt2img"),
                 )
 
-                send_to_img2img.click(
+                send_to_img2img1.click(
                     fn=get_transfer_data,
                     inputs=[tags_output, input_image],
                     outputs=[],
@@ -383,10 +389,10 @@ def on_ui_tabs():
                         output_data = gr.Textbox(label=I18N["Output Data (JSON)"][default_lang], lines=10, interactive=False, elem_id="florence2_output_data")
                         tags = gr.Textbox(label=I18N["Extracted Tags"][default_lang], lines=5, interactive=False, elem_id="florence2_extracted_tags")
 
-                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion:
+                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion2:
                             with gr.Row():
-                                send_to_txt2img = gr.Button(I18N["Send to Txt2Img"][default_lang], elem_id="florence2_send_txt2img_btn")
-                                send_to_img2img = gr.Button(I18N["Send to Img2Img"][default_lang], elem_id="florence2_send_img2img_btn")
+                                send_to_txt2img2 = gr.Button(I18N["Send to Txt2Img"][default_lang], elem_id="florence2_send_txt2img_btn")
+                                send_to_img2img2 = gr.Button(I18N["Send to Img2Img"][default_lang], elem_id="florence2_send_img2img_btn")
 
                     # 事件绑定
                     generate_btn.click(
@@ -395,14 +401,14 @@ def on_ui_tabs():
                         outputs=[output_img, output_mask_img, tags, output_data],
                     )
 
-                    send_to_txt2img.click(
+                    send_to_txt2img2.click(
                         fn=get_transfer_data,
                         inputs=[tags, image2],
                         outputs=[],
                         _js=get_send_js_code("txt2img"),
                     )
 
-                    send_to_img2img.click(
+                    send_to_img2img2.click(
                         fn=get_transfer_data,
                         inputs=[tags, image2],
                         outputs=[],
@@ -429,6 +435,7 @@ def on_ui_tabs():
                     fn=update_interface_language,
                     inputs=[lang_dropdown],
                     outputs=[
+                        # --wd14--
                         input_image,
                         model_selector,
                         threshold_slider,
@@ -436,9 +443,31 @@ def on_ui_tabs():
                         unload_btn,
                         tags_output,
                         rating_output,
-                        send_to_txt2img,
-                        send_to_img2img,
-                        send_accordion,
+                        send_to_txt2img1,
+                        send_to_img2img1,
+                        send_accordion1,
+                        # --florence2--
+                        image2,
+                        model_name,
+                        lora_name,
+                        text_input,
+                        num_beams,
+                        max_new_token,
+                        task,
+                        dtype,
+                        attention,
+                        fill_mask,
+                        keep_model_loaded,
+                        generate_btn,
+                        output_img,
+                        output_mask_img,
+                        output_data,
+                        tags,
+                        send_to_txt2img2,
+                        send_to_img2img2,
+                        send_accordion2,
+                        # --setting--
+                        lang_dropdown,
                     ],
                 )
 
