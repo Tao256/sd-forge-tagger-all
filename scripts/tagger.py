@@ -8,16 +8,15 @@ import gradio as gr
 from modules import script_callbacks
 from scripts.wd14_tagger import WD14Tagger
 from scripts.florence2 import Florence2
-import inspect
 
 # 路徑設定
 current_file_path = Path(os.path.abspath(__file__))
 EXTENSION_DIR = current_file_path.parent.parent
 SYS_DIR = EXTENSION_DIR.parent.parent
 MODELS_DIR = SYS_DIR / "models" / "tagger_models"
-print(f"[Tagger-all]: model_dirs: {MODELS_DIR}")
+print(f"[Tagger-all] model_dirs: {MODELS_DIR}")
 CSV_DIR = EXTENSION_DIR / "csv"
-print(f"[Tagger-all]: CSV_dirs: {CSV_DIR}")
+print(f"[Tagger-all] CSV_dirs: {CSV_DIR}")
 
 if not os.path.exists(MODELS_DIR):
     os.mkdir(MODELS_DIR)
@@ -163,12 +162,18 @@ def pass_tags_to_js(tags):
 
 # --- 更新語言的函式 ---
 def update_interface_language(lang):
-    """根據選擇的語言更新所有介面元件"""
+    """根據選擇的語言更新所有元件"""
     return [
-        #--wd14--
+        # --wd14--
         gr.update(label=I18N["Input Image"][lang]),
         gr.update(label=I18N["Select Tagger Model"][lang]),
         gr.update(label=I18N["Threshold"][lang]),
+        gr.update(value=I18N["Interrogate"][lang]),
+        gr.update(value=I18N["Unload Model"][lang]),
+        gr.update(label=I18N["Output Tags"][lang]),
+        gr.update(value=I18N["Interrogate"][lang]),
+        gr.update(value=I18N["Unload Model"][lang]),
+        gr.update(label=I18N["Output Tags"][lang]),
         gr.update(value=I18N["Interrogate"][lang]),
         gr.update(value=I18N["Unload Model"][lang]),
         gr.update(label=I18N["Output Tags"][lang]),
@@ -176,8 +181,8 @@ def update_interface_language(lang):
         gr.update(value=I18N["Send to Txt2Img"][lang]),
         gr.update(value=I18N["Send to Img2Img"][lang]),
         gr.update(label=I18N["Accordion"][lang]),
-        #--florence2--
-        gr.update(label=I18N["Input Image"][lang]),   
+        # --florence2--
+        gr.update(label=I18N["Input Image"][lang]),
         gr.update(label=I18N["Select Model"][lang]),
         gr.update(label=I18N["Select Lora"][lang]),
         gr.update(label=I18N["Text Input (for specific tasks)"][lang]),
@@ -208,93 +213,196 @@ def on_ui_tabs():
         with gr.Tabs(elem_id="tabs"):
             # WD14 Tagger
             with gr.Tab(label="WD14 Tagger", id="tagger_tab"):
-                with gr.Row():
-                    with gr.Column(variant="panel"):
-                        input_image = gr.Image(
-                            label=I18N["Input Image"][default_lang],
-                            type="pil",
-                            sources=["upload", "webcam"],
-                            height=520,
-                            object_fit="contain",
-                            elem_id="wd14_input_image",
-                        )
-
+                with gr.Tabs(elem_id="wd14_inner_tabs"):
+                    with gr.Tab(label="单张图片", id="wd14_single_tab"):  # 单张图片
                         with gr.Row():
-                            model_selector = gr.Dropdown(
-                                label=I18N["Select Tagger Model"][default_lang],
-                                choices=wd14_model_choices,
-                                value=wd14_model_choices[0],
-                                allow_custom_value=False,
-                                elem_id="wd14_model_selector",
-                            )
-                        with gr.Row():
-                            threshold_slider = gr.Slider(
-                                minimum=0.0,
-                                maximum=1.0,
-                                value=0.35,
-                                step=0.05,
-                                label=I18N["Threshold"][default_lang],
-                            )
-                        with gr.Row():
-                            interrogate_btn = gr.Button(
-                                I18N["Interrogate"][default_lang],
-                                variant="primary",
-                                elem_id="wd14_run_btn",
-                            )
-                            unload_btn = gr.Button(
-                                I18N["Unload Model"][default_lang],
-                                variant="secondary",
-                                elem_id="wd14_unload_btn",
-                            )
-
-                    with gr.Column(variant="panel"):
-                        tags_output = gr.Textbox(
-                            label=I18N["Output Tags"][default_lang],
-                            lines=10,
-                            show_copy_button=True,
-                            interactive=False,
-                            placeholder="output tags",
-                            elem_id="wd14_tags_output",
-                        )
-                        rating_output = gr.Label(
-                            label=I18N["Rating"][default_lang],
-                            elem_id="wd14_rating_output",
-                        )
-
-                        with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion1:
-                            with gr.Row():
-                                send_to_txt2img1 = gr.Button(
-                                    I18N["Send to Txt2Img"][default_lang],
-                                    elem_id="wd14_send_txt2img_btn",
+                            with gr.Column(variant="panel"):
+                                input_image = gr.Image(
+                                    label=I18N["Input Image"][default_lang],
+                                    type="pil",
+                                    sources=["upload", "webcam"],
+                                    height=520,
+                                    object_fit="contain",
+                                    elem_id="wd14_input_image",
                                 )
-                                send_to_img2img1 = gr.Button(
-                                    I18N["Send to Img2Img"][default_lang],
-                                    elem_id="wd14_send_img2img_btn",
+                                with gr.Row():
+                                    model_selector = gr.Dropdown(
+                                        label=I18N["Select Tagger Model"][default_lang],
+                                        choices=wd14_model_choices,
+                                        value=wd14_model_choices[0],
+                                        allow_custom_value=False,
+                                        elem_id="wd14_model_selector",
+                                    )
+                                with gr.Row():
+                                    threshold_slider = gr.Slider(
+                                        minimum=0.0,
+                                        maximum=1.0,
+                                        value=0.35,
+                                        step=0.05,
+                                        label=I18N["Threshold"][default_lang],
+                                    )
+                                with gr.Row():
+                                    interrogate_btn1 = gr.Button(
+                                        I18N["Interrogate"][default_lang],
+                                        variant="primary",
+                                        elem_id="wd14_run_btn1",
+                                    )
+                                    unload_btn1 = gr.Button(
+                                        I18N["Unload Model"][default_lang],
+                                        variant="secondary",
+                                        elem_id="wd14_unload_btn1",
+                                    )
+
+                            with gr.Column(variant="panel"):
+                                tags_output1 = gr.Textbox(
+                                    label=I18N["Output Tags"][default_lang],
+                                    lines=10,
+                                    show_copy_button=True,
+                                    interactive=False,
+                                    placeholder="output tags",
+                                    elem_id="wd14_tags_output",
                                 )
+                                rating_output = gr.Label(
+                                    label=I18N["Rating"][default_lang],
+                                    elem_id="wd14_rating_output",
+                                )
+
+                                with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion1:
+                                    with gr.Row():
+                                        send_to_txt2img1 = gr.Button(
+                                            I18N["Send to Txt2Img"][default_lang],
+                                            elem_id="wd14_send_txt2img_btn",
+                                        )
+                                        send_to_img2img1 = gr.Button(
+                                            I18N["Send to Img2Img"][default_lang],
+                                            elem_id="wd14_send_img2img_btn",
+                                        )
+                    with gr.Tab(label="批量图片", id="wd14_batch_tab"):  # 批量图片
+                        with gr.Row():
+                            with gr.Column(variant="panel"):
+                                batch_input = gr.File(
+                                    label="input images",
+                                    file_types=[".jpg", ".jpeg", ".png", ".bmp", ".gif"],
+                                    file_count="multiple",
+                                    elem_id="wd14_batch_input",
+                                )
+                                with gr.Row():
+                                    model_selector = gr.Dropdown(
+                                        label=I18N["Select Tagger Model"][default_lang],
+                                        choices=wd14_model_choices,
+                                        value=wd14_model_choices[0],
+                                        allow_custom_value=False,
+                                        elem_id="wd14_model_selector",
+                                    )
+                                with gr.Row():
+                                    threshold_slider = gr.Slider(
+                                        minimum=0.0,
+                                        maximum=1.0,
+                                        value=0.35,
+                                        step=0.05,
+                                        label=I18N["Threshold"][default_lang],
+                                    )
+                                with gr.Row():
+                                    interrogate_btn2 = gr.Button(
+                                        I18N["Interrogate"][default_lang],
+                                        variant="primary",
+                                        elem_id="wd14_run_btn2",
+                                    )
+                                    unload_btn2 = gr.Button(
+                                        I18N["Unload Model"][default_lang],
+                                        variant="secondary",
+                                        elem_id="wd14_unload_btn2",
+                                    )
+                            with gr.Column(variant="panel"):
+                                tags_output2 = gr.Textbox(
+                                    label=I18N["Output Tags"][default_lang],
+                                    lines=10,
+                                    show_copy_button=True,
+                                    interactive=False,
+                                    placeholder="output tags",
+                                    elem_id="wd14_tags_output",
+                                )
+                    with gr.Tab(label="文件夹图片", id="wd14_folder_tab"):  # 文件夹图片
+                        with gr.Row():
+                            with gr.Column(variant="panel"):
+                                folder_input = gr.Textbox(
+                                    label="input folder path",
+                                    placeholder="Enter the path of the folder containing images",
+                                    elem_id="wd14_folder_input",
+                                )
+                                with gr.Row():
+                                    model_selector = gr.Dropdown(
+                                        label=I18N["Select Tagger Model"][default_lang],
+                                        choices=wd14_model_choices,
+                                        value=wd14_model_choices[0],
+                                        allow_custom_value=False,
+                                        elem_id="wd14_model_selector",
+                                    )
+                                with gr.Row():
+                                    threshold_slider = gr.Slider(
+                                        minimum=0.0,
+                                        maximum=1.0,
+                                        value=0.35,
+                                        step=0.05,
+                                        label=I18N["Threshold"][default_lang],
+                                    )
+                                with gr.Row():
+                                    interrogate_btn3 = gr.Button(
+                                        I18N["Interrogate"][default_lang],
+                                        variant="primary",
+                                        elem_id="wd14_run_btn3",
+                                    )
+                                    unload_btn3 = gr.Button(
+                                        I18N["Unload Model"][default_lang],
+                                        variant="secondary",
+                                        elem_id="wd14_unload_btn3",
+                                    )
+                            with gr.Column(variant="panel"):
+                                tags_output3 = gr.Textbox(
+                                    label=I18N["Output Tags"][default_lang],
+                                    lines=10,
+                                    show_copy_button=True,
+                                    interactive=False,
+                                    placeholder="output tags",
+                                    elem_id="wd14_tags_output",
+                                )
+
                 # --- 事件綁定 ---
-                interrogate_btn.click(
+                interrogate_btn1.click(
                     fn=tagger_backend.predict,
                     inputs=[input_image, model_selector, threshold_slider],
-                    outputs=[tags_output, rating_output],
+                    outputs=[tags_output1, rating_output],
+                )
+                interrogate_btn2.click(
+                    fn=tagger_backend.multi_predict,
+                    inputs=[batch_input, model_selector, threshold_slider],
+                    outputs=[tags_output2],
+                )
+                interrogate_btn3.click(
+                    fn=tagger_backend.folder_predict,
+                    inputs=[folder_input, model_selector, threshold_slider],
+                    outputs=[tags_output3],
                 )
 
-                unload_btn.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output])
+                unload_btn1.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output1])
+                unload_btn2.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output2])
+                unload_btn3.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output3])
 
                 send_to_txt2img1.click(
                     fn=get_transfer_data,
-                    inputs=[tags_output, input_image],
+                    inputs=[tags_output1, input_image],
                     outputs=[],
                     _js=get_send_js_code("txt2img"),
                 )
 
                 send_to_img2img1.click(
                     fn=get_transfer_data,
-                    inputs=[tags_output, input_image],
+                    inputs=[tags_output1, input_image],
                     outputs=[],
                     _js=get_send_js_code("img2img"),
                 )
             # florence2
-            with gr.Tab(label="florence2", id="florence2_tab"):
+            with gr.Tab(label="Florence2", id="florence2_tab"):
                 with gr.Row():
                     # input
                     with gr.Column(variant="panel"):
@@ -415,10 +523,10 @@ def on_ui_tabs():
                         _js=get_send_js_code("img2img"),
                     )
             # # joy_cation
-            # with gr.Tab(label="joy_cation", id="joy_cation_tab"):
+            # with gr.Tab(label="Joy_Cation", id="joy_cation_tab"):
             #     pass
             # # qwen3_vl
-            # with gr.Tab(label="qwen3_vl", id="qwen3_vl_tab"):
+            # with gr.Tab(label="Qwen3_VL", id="qwen3_vl_tab"):
             #     pass
             # 设置
             with gr.Tab(label="setting", id="setting_tab"):
@@ -439,9 +547,15 @@ def on_ui_tabs():
                         input_image,
                         model_selector,
                         threshold_slider,
-                        interrogate_btn,
-                        unload_btn,
-                        tags_output,
+                        interrogate_btn1,
+                        unload_btn1,
+                        tags_output1,
+                        interrogate_btn2,
+                        unload_btn2,
+                        tags_output2,
+                        interrogate_btn3,
+                        unload_btn3,
+                        tags_output3,
                         rating_output,
                         send_to_txt2img1,
                         send_to_img2img1,

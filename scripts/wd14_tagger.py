@@ -1,5 +1,6 @@
 import csv
 import gc 
+import os
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
@@ -139,12 +140,11 @@ class WD14Tagger:
             probs = self.session.run([output_name], {input_name: input_tensor})[0]
             probs = probs.flatten()
         except Exception as e:
-            return f"[Tagger-all]錯誤：ONNX 推論執行失敗 - {e}", "---"
+            return f"錯誤：ONNX 推論執行失敗 - {e}", "---"
 
         current_tags = self.tags[model_id]
-        
         if len(current_tags) != len(probs):
-             return f"[Tagger-all]錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。", "---"
+             return f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。", "---"
         
         tag_scores = zip(current_tags, probs)
         
@@ -172,6 +172,72 @@ class WD14Tagger:
         else:
             rating_str = "Rating: GENERAL"     
         return tags_str, rating_str
+
+    def multi_predict(self, images_route, model_id, threshold=0.35):
+        tags_strs=dict()
+        if not images_route:
+            return "請先提供圖片"
+        load_message = self.load_model(model_id)
+        if "錯誤" in load_message:
+            return load_message
+        target_size = self.model_configs[model_id]['size']
+
+        for i,image_route in enumerate(images_route):
+            image = Image.open(image_route)
+            if image.mode != 'RGB':
+                image = image.convert("RGB")
+            
+            image = image.resize((target_size, target_size), Image.LANCZOS)
+            img_array = np.array(image, dtype=np.float32)
+            img_array = img_array[:, :, ::-1] # BGR
+            input_tensor = np.expand_dims(img_array, axis=0)
+            print(f"[Tagger-all]正在使用 {model_id} 執行 ONNX 推論，current image:{i+1}...")
+            input_name = self.session.get_inputs()[0].name
+            output_name = self.session.get_outputs()[0].name
+            probs = self.session.run([output_name], {input_name: input_tensor})[0]
+            probs = probs.flatten()
+            current_tags = self.tags[model_id]
+            if len(current_tags) != len(probs):
+                return f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。"
+            tag_scores = zip(current_tags, probs)
+            filtered_tags_with_scores = sorted(
+                [(tag, score) for tag, score in tag_scores if score >= threshold],
+                key=lambda x: x[1], 
+                reverse=True
+            )
+            rating_tags = []
+            general_tags = []
+            rating_categories = ["general", "sensitive", "questionable", "explicit"]
+            for tag, score in filtered_tags_with_scores:
+                if tag in rating_categories:
+                    rating_tags.append(tag)
+                else:
+                    clean_tag = tag.replace("_", " ")
+                    general_tags.append(clean_tag)
+
+            tags_str = ", ".join(general_tags)
+
+            route=image_route.split("/")[-1] if "/" in image_route else image_route.split("\\")[-1]
+            tags_strs[route] = tags_str
+        return tags_strs
+    
+    def folder_predict(self,folder_route,model_id, threshold=0.35):
+        image_routes = []
+        if not folder_route:
+            return "請先提供圖片文件夾路徑"
+ 
+        for filename in os.listdir(folder_route):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+                image_route = os.path.join(folder_route, filename)
+                image_routes.append(image_route)
+        if not image_routes:
+            return "文件夾中沒有找到有效的圖片文件"
+        tags_str = self.multi_predict(image_routes, model_id, threshold)
+        return tags_str
+
+
+
+
 
 
 
