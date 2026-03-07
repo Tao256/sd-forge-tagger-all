@@ -48,39 +48,58 @@ def get_transfer_data(tags: str, image: Image.Image):
             print(f"WD14 Tagger: 圖片轉碼失敗 - {e}")
     print(data)
 
-    return json.dumps(data, ensure_ascii=False)
+    return json.dumps(data)
 
-
-# --- 標籤傳送的 JavaScript 邏輯 (使用 ID 反查索引) ---
+#send to txt2img or img2img
 def get_send_js_code(target_tab_type):
-    """
-    target_tab_type: 'txt2img' 或 'img2img'
-    使用您指定的 ID: tab_txt2img 和 tab_img2img
-    """
+    """使用指定的 ID: txt2img 或 img2img"""
     return f"""
-        async function(inputVal) {{
-            console.log("WD14 Tagger: 接收到資料", inputVal);
-            var data = {{ tags: "", image_b64: "" }};
-            var rawData = Array.isArray(inputVal) ? inputVal[0] : inputVal;
-            console.log("WD14 Tagger: 處理後的 rawData", rawData);
+        async function() {{
+            function getTagText() {{
+            let tagsBox = gradioApp().getElementById("wd14_tags_output_single");
+            if (!tagsBox) return "";
+            let ta = tagsBox.querySelector("textarea, input");
+            if (ta && ta.value) return ta.value;
+            return tagsBox.textContent.trim();
+        }}
 
-            if (typeof rawData === 'string') {{
-                try {{
-                    data = JSON.parse(rawData);
-                }} catch (e) {{
-                    console.error("WD14 Tagger: JSON 解析失敗", e);
-                    data = {{ tags: rawData }}; 
-                }}
-            }} else if (typeof rawData === 'object') {{
-                data = rawData;
+        // 图片 as base64
+        async function getImageBase64FromImg(src) {{
+            return new Promise((resolve) => {{
+                let img = new window.Image();
+                img.crossOrigin = "Anonymous";
+                img.onload = function() {{
+                    try {{
+                        let canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        let ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0);
+                        let b64 = canvas.toDataURL('image/png').split(',')[1];
+                        resolve(b64);
+                    }} catch(e) {{
+                        resolve("");
+                    }}
+                }};
+                img.onerror = function() {{ resolve(""); }};
+                img.src = src;
+            }});
+        }}
+        // 调用
+        let tags = getTagText();
+        let image_b64 = "";
+        let parent = gradioApp().getElementById("wd14_single_input");
+        if (parent) {{
+            let img = parent.querySelector("img");
+            if (img && img.src) {{
+                image_b64 = await getImageBase64FromImg(img.src);
             }}
+        }}
 
-            if (!data || !data.tags) {{
-                console.error("WD14 Tagger: 無有效標籤資料");
-                return [];
-            }}
+        data = {{ tags, image_b64 }};
+        console.log(data);
 
-            var targetTabContentId = 'tab_{target_tab_type}'; // 使用您指定的 ID: tab_txt2img 或 tab_img2img
+        var targetTabContentId = 'tab_{target_tab_type}'; // 使用您指定的 ID: tab_txt2img 或 tab_img2img
             var tabContent = gradioApp().getElementById(targetTabContentId);
 
             if (!tabContent) {{
@@ -155,7 +174,7 @@ def get_send_js_code(target_tab_type):
             }}
 
             return [];
-        }}
+    }}
     """
 
 
@@ -395,26 +414,11 @@ def on_ui_tabs():
                 unload_btn3.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output3])
 
                 send_to_txt2img1.click(
-                    fn=pass_tags_to_js,
-                    inputs=[tags_output1],
-                    outputs=[tags_state],
-                ).then(
-                    fn=get_transfer_data,
-                    inputs=[tags_state, input_image],
-                    outputs=[hidden_json],
-                    _js=get_send_js_code("txt2img"),
-                )
-
+                    fn=None,inputs=[], outputs=[],
+                    _js=get_send_js_code("txt2img"))
                 send_to_img2img1.click(
-                    fn=pass_tags_to_js,
-                    inputs=[tags_output1],
-                    outputs=[tags_output1],
-                ).then(
-                    fn=get_transfer_data,
-                    inputs=[tags_output1, input_image],
-                    outputs=[hidden_json],
-                    _js=get_send_js_code("img2img"),
-                )
+                    fn=None,inputs=[], outputs=[],
+                    _js=get_send_js_code("img2img"))
             # florence2
             with gr.Tab(label="Florence2", id="florence2_tab"):
                 with gr.Row():
