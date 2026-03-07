@@ -33,7 +33,7 @@ florence2_backend = Florence2(MODELS_DIR)
 
 # 回傳 JSON 字串
 def get_transfer_data(tags: str, image: Image.Image):
-    data = {"tags": tags, "image_b64": None}
+    data = {"tags": tags, "image_b64": ""}
 
     if image:
         try:
@@ -46,8 +46,9 @@ def get_transfer_data(tags: str, image: Image.Image):
             data["image_b64"] = img_str
         except Exception as e:
             print(f"WD14 Tagger: 圖片轉碼失敗 - {e}")
+    print(data)
 
-    return json.dumps(data)
+    return json.dumps(data, ensure_ascii=False)
 
 
 # --- 標籤傳送的 JavaScript 邏輯 (使用 ID 反查索引) ---
@@ -58,8 +59,10 @@ def get_send_js_code(target_tab_type):
     """
     return f"""
         async function(inputVal) {{
-            var data = {{}};
+            console.log("WD14 Tagger: 接收到資料", inputVal);
+            var data = {{ tags: "", image_b64: "" }};
             var rawData = Array.isArray(inputVal) ? inputVal[0] : inputVal;
+            console.log("WD14 Tagger: 處理後的 rawData", rawData);
 
             if (typeof rawData === 'string') {{
                 try {{
@@ -223,7 +226,7 @@ def on_ui_tabs():
                                     sources=["upload", "webcam"],
                                     height=520,
                                     object_fit="contain",
-                                    elem_id="wd14_input_image",
+                                    elem_id="wd14_single_input",
                                 )
                                 with gr.Row():
                                     model_selector = gr.Dropdown(
@@ -260,12 +263,15 @@ def on_ui_tabs():
                                     show_copy_button=True,
                                     interactive=False,
                                     placeholder="output tags",
-                                    elem_id="wd14_tags_output",
+                                    elem_id="wd14_tags_output_single",
                                 )
                                 rating_output = gr.Label(
                                     label=I18N["Rating"][default_lang],
                                     elem_id="wd14_rating_output",
                                 )
+                                hidden_json = gr.Textbox(visible=False, elem_id="wd14_hidden_json")
+                                tags_state = gr.State(value="")
+
 
                                 with gr.Accordion(I18N["Accordion"][default_lang], open=True) as send_accordion1:
                                     with gr.Row():
@@ -320,7 +326,7 @@ def on_ui_tabs():
                                     show_copy_button=True,
                                     interactive=False,
                                     placeholder="output tags",
-                                    elem_id="wd14_tags_output",
+                                    elem_id="wd14_tags_output_batch",
                                 )
                     with gr.Tab(label="文件夹图片", id="wd14_folder_tab"):  # 文件夹图片
                         with gr.Row():
@@ -364,7 +370,7 @@ def on_ui_tabs():
                                     show_copy_button=True,
                                     interactive=False,
                                     placeholder="output tags",
-                                    elem_id="wd14_tags_output",
+                                    elem_id="wd14_tags_output_folder",
                                 )
 
                 # --- 事件綁定 ---
@@ -389,16 +395,24 @@ def on_ui_tabs():
                 unload_btn3.click(fn=tagger_backend.unload_model, inputs=[], outputs=[tags_output3])
 
                 send_to_txt2img1.click(
+                    fn=pass_tags_to_js,
+                    inputs=[tags_output1],
+                    outputs=[tags_state],
+                ).then(
                     fn=get_transfer_data,
-                    inputs=[tags_output1, input_image],
-                    outputs=[],
+                    inputs=[tags_state, input_image],
+                    outputs=[hidden_json],
                     _js=get_send_js_code("txt2img"),
                 )
 
                 send_to_img2img1.click(
+                    fn=pass_tags_to_js,
+                    inputs=[tags_output1],
+                    outputs=[tags_output1],
+                ).then(
                     fn=get_transfer_data,
                     inputs=[tags_output1, input_image],
-                    outputs=[],
+                    outputs=[hidden_json],
                     _js=get_send_js_code("img2img"),
                 )
             # florence2
