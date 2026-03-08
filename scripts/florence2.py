@@ -60,7 +60,7 @@ prompts = {
 
 dtype = {"bf16": torch.bfloat16, "fp16": torch.float16, "fp32": torch.float32}
 
-attention_list = ['flash_attention_2', 'sdpa', 'eager']
+attention_list = ["flash_attention_2", "sdpa", "eager"]
 
 def load_model(model_path: str, attention: str, dtype: torch.dtype, offload_device: torch.device):
     from scripts.config.modeling_florence2 import Florence2ForConditionalGeneration, Florence2Config
@@ -125,6 +125,7 @@ class Florence2:
         self.model_list = model_list
         self.lora_list = lora_list
         self.prompts = prompts
+        self.tasks=list(prompts.keys())
         self.dtype = list(dtype.keys())
         self.attention_list = attention_list
         self.device=torch.device("cuda" if torch.cuda.is_available() else "cpu")

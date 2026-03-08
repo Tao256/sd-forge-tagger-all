@@ -174,9 +174,48 @@ def sync_value(value):
     """同步所有标签页的选择器值"""
     return [value, value, value]
 
-def update_config(*args):
+def default_config():
+    return """
+    {
+    "language": "English",
+    "WD14_MODEL": 0,
+    "threshold_slider": 0.35,
+    "florence2_model": 3,
+    "florence2_lora": 0,
+    "num_beams": 3,
+    "max_token": 1024,
+    "task": 3,
+    "dtype": 1,
+    "attention": 1
+    }
+
+    """
+
+def update_config(lang_dropdown,
+                set_WD14_model,
+                set_threshold_slider,
+                set_florence2_model,
+                set_florence2_lora,
+                set_num_beams,
+                set_max_token,
+                set_task,
+                set_dtype,
+                set_attention):
     """更新配置文件"""
+    global config
     count=0
+    wd14_model_index=tagger_backend.model_configs_list.index(set_WD14_model)
+    florence2_model_index=florence2_backend.model_list.index(set_florence2_model)
+    if set_florence2_lora == "None":
+        florence2_lora_index = 0
+    else:
+        florence2_lora_index = florence2_backend.lora_list.index(set_florence2_lora)
+    task_index=florence2_backend.tasks.index(set_task)
+    dtype_index=florence2_backend.dtype.index(set_dtype)
+    attention_index=florence2_backend.attention_list.index(set_attention)
+    args=[lang_dropdown,wd14_model_index,set_threshold_slider,florence2_model_index,florence2_lora_index,set_num_beams,
+          set_max_token,task_index,dtype_index,attention_index]
+    
     for key,value in zip(config.keys(), args):
         if config[key] != value:
             config[key] = value
@@ -197,7 +236,7 @@ def on_ui_tabs():
             # WD14 Tagger
             with gr.Tab(label="WD14 Tagger", id="tagger_tab"):
                 with gr.Tabs(elem_id="wd14_inner_tabs"):
-                    with gr.Tab(label=I18N["Single Image"][default_lang], id="wd14_single_tab") as wd14_single_tab:  # 单张图片
+                    with gr.Tab(label=I18N["Single Image"][default_lang], id="wd14_single_tab"):  # 单张图片
                         with gr.Row():
                             with gr.Column(variant="panel"):
                                 input_image_wd14 = gr.Image(
@@ -211,14 +250,13 @@ def on_ui_tabs():
                                 model_selector1 = gr.Dropdown(
                                     label=I18N["Select Tagger Model"][default_lang],
                                     choices=tagger_backend.model_configs_list,
-                                    value=config["WD14_MODEL"],
-                                    allow_custom_value=False,
+                                    value=tagger_backend.model_configs_list[int(config["WD14_MODEL"])],
                                     elem_id="wd14_model_selector",
                                 )
                                 threshold_slider1 = gr.Slider(
                                     minimum=0.0,
                                     maximum=1.0,
-                                    value=config["threshold_slider"],
+                                    value=float(config["threshold_slider"]),
                                     step=0.05,
                                     label=I18N["Threshold"][default_lang],
                                     elem_id="wd14_threshold_slider",
@@ -258,7 +296,7 @@ def on_ui_tabs():
                                         I18N["Send to Img2Img"][default_lang],
                                         elem_id="wd14_send_img2img_btn",
                                     )
-                    with gr.Tab(label=I18N["Batch Process"][default_lang], id="wd14_batch_tab") as wd14_batch_tab:  # 批量图片
+                    with gr.Tab(label=I18N["Batch Process"][default_lang], id="wd14_batch_tab"):  # 批量图片
                         with gr.Row():
                             with gr.Column(variant="panel"):
                                 batch_input_wd14 = gr.File(
@@ -270,14 +308,13 @@ def on_ui_tabs():
                                 model_selector2 = gr.Dropdown(
                                     label=I18N["Select Tagger Model"][default_lang],
                                     choices=tagger_backend.model_configs_list,
-                                    value=config["WD14_MODEL"],
-                                    allow_custom_value=False,
+                                    value=tagger_backend.model_configs_list[int(config["WD14_MODEL"])],
                                     elem_id="wd14_model_selector",
                                 )
                                 threshold_slider2 = gr.Slider(
                                     minimum=0.0,
                                     maximum=1.0,
-                                    value=config["threshold_slider"],
+                                    value=float(config["threshold_slider"]),
                                     step=0.05,
                                     label=I18N["Threshold"][default_lang],
                                     elem_id="wd14_threshold_slider",
@@ -308,7 +345,7 @@ def on_ui_tabs():
                                         variant="secondary",
                                         elem_id="wd14_save_txt_btn2",
                                     )
-                    with gr.Tab(label=I18N["Batch from Folder"][default_lang], id="wd14_folder_tab") as wd14_folder_tab:  # 文件夹图片
+                    with gr.Tab(label=I18N["Batch from Folder"][default_lang], id="wd14_folder_tab"):  # 文件夹图片
                         with gr.Row():
                             with gr.Column(variant="panel"):
                                 folder_input_wd14 = gr.Textbox(
@@ -319,14 +356,13 @@ def on_ui_tabs():
                                 model_selector3 = gr.Dropdown(
                                     label=I18N["Select Tagger Model"][default_lang],
                                     choices=tagger_backend.model_configs_list,
-                                    value=config["WD14_MODEL"],
-                                    allow_custom_value=False,
+                                    value=tagger_backend.model_configs_list[int(config["WD14_MODEL"])],
                                     elem_id="wd14_model_selector",
                                 )
                                 threshold_slider3 = gr.Slider(
                                     minimum=0.0,
                                     maximum=1.0,
-                                    value=config["threshold_slider"],
+                                    value=float(config["threshold_slider"]),
                                     step=0.05,
                                     label=I18N["Threshold"][default_lang],
                                     elem_id="wd14_threshold_slider",
@@ -431,13 +467,13 @@ def on_ui_tabs():
                         model_name = gr.Dropdown(
                             label=I18N["Select Model"][default_lang],
                             choices=florence2_backend.model_list,
-                            value=config["florence2_model"],
+                            value=florence2_backend.model_list[int(config["florence2_model"])],
                             elem_id="florence2_model_selector",
                         )
                         lora_name = gr.Dropdown(
                             label=I18N["Select Lora"][default_lang],
                             choices=florence2_backend.lora_list,
-                            value=config["florence2_lora"],
+                            value=florence2_backend.lora_list[int(config["florence2_lora"])],
                             elem_id="florence2_lora_selector",
                         )
 
@@ -451,23 +487,23 @@ def on_ui_tabs():
                         with gr.Row():
                             num_beams = gr.Number(
                                 label=I18N["Num Beams"][default_lang],
-                                value=3,
+                                value=int(config["num_beams"]),
                                 minimum=1,
                                 maximum=10,
                                 elem_id="florence2_num_beams",
                             )
 
-                            max_new_token = gr.Number(
+                            max_token = gr.Number(
                                 label=I18N["Max token"][default_lang],
-                                value=1024,
+                                value=int(config["max_token"]),
                                 minimum=1,
                                 maximum=4096,
                                 elem_id="florence2_max_token",
                             )
                             task = gr.Dropdown(
                                 label=I18N["Select Task"][default_lang],
-                                choices=florence2_backend.prompts.keys(),
-                                value=list(florence2_backend.prompts.keys())[0],
+                                choices=florence2_backend.tasks,
+                                value=florence2_backend.tasks[int(config["task"])],
                                 elem_id="florence2_task_selector",
                             )
 
@@ -475,13 +511,13 @@ def on_ui_tabs():
                             dtype = gr.Dropdown(
                                 label=I18N["Select Precision"][default_lang],
                                 choices=florence2_backend.dtype,
-                                value=florence2_backend.dtype[1],
+                                value=florence2_backend.dtype[int(config["dtype"])],
                                 elem_id="florence2_dtype_selector",
                             )
                             attention = gr.Dropdown(
                                 label=I18N["Select Attention Implementation"][default_lang],
                                 choices=florence2_backend.attention_list,
-                                value=florence2_backend.attention_list[2],
+                                value=florence2_backend.attention_list[int(config["attention"])],
                                 elem_id="florence2_attention_selector",
                             )
 
@@ -517,37 +553,34 @@ def on_ui_tabs():
                             send_to_txt2img2 = gr.Button(I18N["Send to Txt2Img"][default_lang], elem_id="florence2_send_txt2img_btn")
                             send_to_img2img2 = gr.Button(I18N["Send to Img2Img"][default_lang], elem_id="florence2_send_img2img_btn")
 
-                    # 事件绑定
-                    generate_btn.click(
-                        fn=florence2_backend.encode,
-                        inputs=[image2, text_input, model_name, dtype, attention, lora_name, task, fill_mask, keep_model_loaded, num_beams, max_new_token],
-                        outputs=[output_img, output_mask_img, tags, output_data],
-                    )
-
-                    send_to_txt2img2.click(
-                        fn=None,
-                        inputs=[],
-                        outputs=[],
-                        _js=get_send_js_code("txt2img"),
-                    )
-
-                    send_to_img2img2.click(
-                        fn=None,
-                        inputs=[],
-                        outputs=[],
-                        _js=get_send_js_code("img2img"),
-                    )
-                    save_output_img_btn.click(
-                        fn=partial(save_florence2_image, img_type="output"),
-                        inputs=[output_img],
-                        outputs=[],
-                    )
-
-                    save_mask_img_btn.click(
-                        fn=partial(save_florence2_image, img_type="mask"),
-                        inputs=[output_mask_img],
-                        outputs=[],
-                    )
+                # 事件绑定
+                generate_btn.click(
+                    fn=florence2_backend.encode,
+                    inputs=[image2, text_input, model_name, dtype, attention, lora_name, task, fill_mask, keep_model_loaded, num_beams, max_token],
+                    outputs=[output_img, output_mask_img, tags, output_data],
+                )
+                send_to_txt2img2.click(
+                    fn=None,
+                    inputs=[],
+                    outputs=[],
+                    _js=get_send_js_code("txt2img"),
+                )
+                send_to_img2img2.click(
+                    fn=None,
+                    inputs=[],
+                    outputs=[],
+                    _js=get_send_js_code("img2img"),
+                )
+                save_output_img_btn.click(
+                    fn=partial(save_florence2_image, img_type="output"),
+                    inputs=[output_img],
+                    outputs=[],
+                )
+                save_mask_img_btn.click(
+                    fn=partial(save_florence2_image, img_type="mask"),
+                    inputs=[output_mask_img],
+                    outputs=[],
+                )
             # # joy_cation
             # with gr.Tab(label="Joy_Cation", id="joy_cation_tab"):
             #     pass
@@ -562,21 +595,20 @@ def on_ui_tabs():
                         choices=["简体中文", "繁體中文", "English"],
                         value=config["language"],
                         label=I18N["Language"][default_lang],
-                        elem_id="wd14_lang_selector",
+                        elem_id="setting_wd14_lang_selector",
                         show_label=True,
                     )
                     gr.Markdown("**WD14 Tagger Settings**")
                     set_WD14_model=gr.Dropdown(
                         label="WD14 model",
                         choices=tagger_backend.model_configs_list,
-                        value=config["WD14_MODEL"],
-                        allow_custom_value=False,
+                        value=tagger_backend.model_configs_list[int(config["WD14_MODEL"])],
                         elem_id="setting_wd14_model_selector",
                     )
                     set_threshold_slider=gr.Slider(
                         minimum=0.0,
                         maximum=1.0,
-                        value=config["threshold_slider"],
+                        value=float(config["threshold_slider"]),
                         step=0.05,
                         label=I18N["Threshold"][default_lang],
                         elem_id="setting_threshold_slider",
@@ -585,16 +617,46 @@ def on_ui_tabs():
                     set_florence2_model=gr.Dropdown(
                         label="Florence2 Model",
                         choices=florence2_backend.model_list,
-                        value=config["florence2_model"],
-                        allow_custom_value=False,
+                        value=florence2_backend.model_list[int(config["florence2_model"])],
                         elem_id="setting_florence2_model_selector",
                     )
                     set_florence2_lora=gr.Dropdown(
                         label="Florence2 Lora",
                         choices=florence2_backend.lora_list,
-                        value=config["florence2_lora"],
-                        allow_custom_value=False,
+                        value=florence2_backend.lora_list[int(config["florence2_lora"])],
                         elem_id="setting_florence2_lora_selector",
+                    )
+                    set_num_beams=gr.Number(
+                                label=I18N["Num Beams"][default_lang],
+                                value=int(config["num_beams"]),
+                                minimum=1,
+                                maximum=10,
+                                elem_id="setting_florence2_num_beams",
+                    )
+                    set_max_token=gr.Number(
+                                label=I18N["Max token"][default_lang],
+                                value=int(config["max_token"]),
+                                minimum=1,
+                                maximum=4096,
+                                elem_id="setting_florence2_max_token",
+                    )
+                    set_task = gr.Dropdown(
+                        label=I18N["Select Task"][default_lang],
+                        choices=florence2_backend.tasks,
+                        value=florence2_backend.tasks[int(config["task"])],
+                        elem_id="setting_florence2_task_selector",
+                    )
+                    set_dtype = gr.Dropdown(
+                                label=I18N["Select Precision"][default_lang],
+                                choices=florence2_backend.dtype,
+                                value=florence2_backend.dtype[int(config["dtype"])],
+                                elem_id="setting_florence2_dtype_selector",
+                    )
+                    set_attention = gr.Dropdown(
+                        label=I18N["Select Attention Implementation"][default_lang],
+                        choices=florence2_backend.attention_list,
+                        value=florence2_backend.attention_list[int(config["attention"])],
+                        elem_id="setting_florence2_attention_selector",
                     )
 
                 # --- 事件綁定 ---
@@ -604,7 +666,12 @@ def on_ui_tabs():
                             set_WD14_model,
                             set_threshold_slider,
                             set_florence2_model,
-                            set_florence2_lora],
+                            set_florence2_lora,
+                            set_num_beams,
+                            set_max_token,
+                            set_task,
+                            set_dtype,
+                            set_attention,],
                     outputs=[],
                 )
 
