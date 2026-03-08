@@ -1,6 +1,7 @@
 import csv
 import gc 
 import os
+import gradio as gr
 import numpy as np
 from PIL import Image
 import onnxruntime as ort
@@ -42,6 +43,7 @@ class WD14Tagger:
         self.session = None
         self.tags = {} 
         self.model_configs = MODEL_CONFIGS
+        self.model_configs_list=list(self.model_configs.keys())
 
     def load_tags(self, model_id, csv_filename):
         if model_id in self.tags:
@@ -76,28 +78,28 @@ class WD14Tagger:
             self.model_loaded = False
             self.current_model_id = None
             gc.collect() 
-            return "模型已成功釋放。"
-        return "沒有模型處於載入狀態。"
+            return gr.Info("模型已成功釋放。")
+        return gr.Info("沒有模型處於載入狀態。")
 
     def load_model(self, model_id):
         if self.current_model_id == model_id and self.model_loaded:
-            return f"模型 {model_id} 已載入。"
+            gr.Info(f"模型 {model_id} 已載入。")
   
         if self.model_loaded:
             self.unload_model()
 
         config = self.model_configs.get(model_id)
         if not config:
-            return f"錯誤:找不到模型 ID: {model_id} 的配置。"
+            gr.Error(f"錯誤:找不到模型 ID: {model_id} 的配置。")
         
         if not self.load_tags(model_id, config["csv_filename"]):
-            return "錯誤:模型標籤文件載入失敗。"
+            gr.Error("錯誤:模型標籤文件載入失敗。")
 
         model_path = self.models_dir / config["onnx_filename"]
 
         if not model_path.exists():
             print(f"找不到模型文件：{model_path}")
-            return f"錯誤:模型文件({config['onnx_filename']}) 缺失。預期路徑：{model_path.resolve()}。"
+            gr.Error(f"錯誤:模型文件({config['onnx_filename']}) 缺失。預期路徑：{model_path.resolve()}。")
         
         print(f'[Tagger-all]:Loading "{model_id}" from "{model_path}"...')
         try:
@@ -106,18 +108,16 @@ class WD14Tagger:
             
             self.model_loaded = True
             self.current_model_id = model_id
-            return f"成功載入模型: {model_id}。"
+            gr.Info(f"成功載入模型: {model_id}。")
         except Exception as e:
             self.unload_model() 
-            return f"錯誤：模型載入失敗 - {e}"
+            gr.Error(f"錯誤：模型載入失敗 - {e}")
 
     def predict(self, image, model_id, threshold=0.35):
         if not image:
-            return "請先提供圖片", "---"
+            return gr.Info("請先提供圖片"), "---"
         
-        load_message = self.load_model(model_id)
-        if "錯誤" in load_message:
-            return load_message, "---"
+        self.load_model(model_id)
 
         try:
             target_size = self.model_configs[model_id]['size']
@@ -131,7 +131,7 @@ class WD14Tagger:
             input_tensor = np.expand_dims(img_array, axis=0)
             
         except Exception as e:
-            return f"錯誤：圖片前處理失敗 - {e}", "---"
+            return gr.Error(f"錯誤：圖片前處理失敗 - {e}"), "---"
 
         try:
             print(f"[Tagger-all]正在使用 {model_id} 執行 ONNX 推論...")
@@ -140,11 +140,11 @@ class WD14Tagger:
             probs = self.session.run([output_name], {input_name: input_tensor})[0]
             probs = probs.flatten()
         except Exception as e:
-            return f"錯誤：ONNX 推論執行失敗 - {e}", "---"
+            return gr.Error(f"錯誤：ONNX 推論執行失敗 - {e}"), "---"
 
         current_tags = self.tags[model_id]
         if len(current_tags) != len(probs):
-             return f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。", "---"
+             return gr.Error(f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。"), "---"
         
         tag_scores = zip(current_tags, probs)
         
@@ -176,10 +176,8 @@ class WD14Tagger:
     def multi_predict(self, images_route, model_id, threshold=0.35):
         tags_strs=dict()
         if not images_route:
-            return "請先提供圖片"
-        load_message = self.load_model(model_id)
-        if "錯誤" in load_message:
-            return load_message
+            return gr.Info("請先提供圖片")
+        self.load_model(model_id)
         target_size = self.model_configs[model_id]['size']
 
         for i,image_route in enumerate(images_route):
@@ -198,7 +196,7 @@ class WD14Tagger:
             probs = probs.flatten()
             current_tags = self.tags[model_id]
             if len(current_tags) != len(probs):
-                return f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。"
+                return gr.Error(f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。")
             tag_scores = zip(current_tags, probs)
             filtered_tags_with_scores = sorted(
                 [(tag, score) for tag, score in tag_scores if score >= threshold],
@@ -224,14 +222,14 @@ class WD14Tagger:
     def folder_predict(self,folder_route,model_id, threshold=0.35):
         image_routes = []
         if not folder_route:
-            return "請先提供圖片文件夾路徑"
+            return gr.Info("請先提供圖片文件夾路徑")
  
         for filename in os.listdir(folder_route):
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
                 image_route = os.path.join(folder_route, filename)
                 image_routes.append(image_route)
         if not image_routes:
-            return "文件夾中沒有找到有效的圖片文件"
+            return gr.Info("文件夾中沒有找到有效的圖片文件")
         tags_str = self.multi_predict(image_routes, model_id, threshold)
         return tags_str
 

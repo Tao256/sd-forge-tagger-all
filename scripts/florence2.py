@@ -2,8 +2,6 @@ import os
 import torch
 import torchvision.transforms.functional as F
 from packaging import version
-import json
-import base64
 import io
 import os
 import matplotlib
@@ -258,8 +256,8 @@ class Florence2:
         mask_pil = Image.fromarray(mask_np, mode='L')
         return mask_pil
 
-    def encode(self, image, text_input, model_path,precision,attention,lora, task, fill_mask, keep_model_loaded=False, 
-            num_beams=3, max_new_tokens=1024, do_sample=True, output_mask_select="", seed=None):
+    def encode(self, image, text_input, model_path,precision,attention,lora, task, fill_mask, keep_model_loaded, 
+            num_beams, max_new_tokens, do_sample=True, output_mask_select="", seed=None):
         image=np.array(image) #turn to numpy array
         # 处理3维张量 (h, w, c)
         height, width, _ = image.shape
@@ -569,27 +567,3 @@ class Florence2:
         out_mask_tensor=self.mask_tensor_to_image(out_mask_tensor)
 
         return (out_tensor, out_mask_tensor, out_results, out_data)
-    
-    # 回傳 JSON 字串
-    def get_transfer_data(self):
-        """tags: str, image: Image.Image"""
-        tags = self.tags.value if isinstance(tags, gr.Textbox) else tags
-        image = self.image.value if isinstance(image, gr.Image) else image
-        print(f"[DEBUG] tags 参数类型: {type(tags)}, 值: {tags}")  # 调试用
-        print(f"[DEBUG] image 参数类型: {type(image)}, 值: {image}")  # 调试用
-        data = {"tags": tags, "image_b64": ""}
-
-        if image:
-            try:
-                # 確保是 RGB 模式再存
-                if image.mode != "RGB":
-                    image = image.convert("RGB")
-                buffered = io.BytesIO()
-                # image.save(buffered, format="PNG")
-                img_str = base64.b64encode(buffered.getvalue()).decode()
-                data["image_b64"] = img_str
-            except Exception as e:
-                print(f"WD14 Tagger: 圖片轉碼失敗 - {e}")
-        print(data)
-
-        return json.dumps(data)
