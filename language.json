@@ -1,8 +1,33 @@
 {
+    "Single Image": {
+        "繁體中文": "單張圖片",
+        "English": "Single Image",
+        "简体中文": "单张图片"
+    },
+    "Batch Process": {
+        "繁體中文": "批量處理",
+        "English": "Batch Process",
+        "简体中文": "批量处理"
+    },
+    "Batch from Folder": {
+        "繁體中文": "資料夾批量處理",
+        "English": "Batch from Folder",
+        "简体中文": "文件夹批量处理"
+    },
     "Input Image": {
         "繁體中文": "輸入圖片",
         "English": "Input Image",
         "简体中文": "输入图片"
+    },
+    "Input Batch Images": {
+        "繁體中文": "輸入批量圖片",
+        "English": "Input Batch Images",
+        "简体中文": "输入批量图片"
+    },
+    "Input Folder": {
+        "繁體中文": "輸入資料夾",
+        "English": "Input Folder",
+        "简体中文": "输入文件夹"
     },
     "Select Tagger Model": {
         "繁體中文": "選擇 Tagger 模型",
@@ -44,15 +69,15 @@
         "English": "Send to Img2Img",
         "简体中文": "传送到 图生图 (Img2Img)"
     },
+    "Save Tags to Txt": {
+        "繁體中文": "標籤保存到文本",
+        "English": "Save Tags to Txt",
+        "简体中文": "标签保存到文本"
+    },
     "Language": {
         "繁體中文": "語言",
         "English": "Language",
         "简体中文": "语言"
-    },
-    "Accordion": {
-        "繁體中文": "傳送到其他分頁",
-        "English": "Send to other tabs",
-        "简体中文": "传送到其他分页"
     },
     "Select Model": {
         "繁體中文": "選擇模型",
