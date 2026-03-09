@@ -32,6 +32,12 @@ MODEL_CONFIGS = {
         "csv_filename": "wd-eva02-large-tagger-v3.csv", 
         "size": 448
     },
+    "wd-vit-large-tagger-v3":{
+        "repo_id": "SmilingWolf/wd-vit-large-tagger-v3",
+        "onnx_filename": "wd-vit-large-tagger-v3.onnx", 
+        "csv_filename": "wd-vit-large-tagger-v3.csv", 
+        "size": 448
+    }
 }
 
 class WD14Tagger:
@@ -65,10 +71,10 @@ class WD14Tagger:
                 self.tags[model_id] = model_tags 
                 return True
             except Exception as e:
-                print(f"[Tagger-all]標籤文件 {csv_filename} 載入失敗: {e}")
+                print(f"[Tagger-all] {csv_filename} load failed: {e}")
                 return False
         else:
-            print(f"[Tagger-all]標籤文件缺失：{tags_path}，請確認下載csv文件")
+            print(f"[Tagger-all]{tags_path} not found.")
             return False
 
     def unload_model(self):
@@ -78,28 +84,31 @@ class WD14Tagger:
             self.model_loaded = False
             self.current_model_id = None
             gc.collect() 
-            return gr.Info("模型已成功釋放。")
-        return gr.Info("沒有模型處於載入狀態。")
+            return gr.Info("Model has been released")
+        return gr.Info("No model loading")
 
     def load_model(self, model_id):
         if self.current_model_id == model_id and self.model_loaded:
-            gr.Info(f"模型 {model_id} 已載入。")
+            return
   
         if self.model_loaded:
-            self.unload_model()
+            del self.session
+            self.session = None
+            self.model_loaded = False
+            self.current_model_id = None
+            gc.collect() 
 
         config = self.model_configs.get(model_id)
         if not config:
-            gr.Error(f"錯誤:找不到模型 ID: {model_id} 的配置。")
+            return gr.Error(f"{model_id} could not be found.")
         
         if not self.load_tags(model_id, config["csv_filename"]):
-            gr.Error("錯誤:模型標籤文件載入失敗。")
+            return gr.Error("csv failed to load")
 
         model_path = self.models_dir / config["onnx_filename"]
 
         if not model_path.exists():
-            print(f"找不到模型文件：{model_path}")
-            gr.Error(f"錯誤:模型文件({config['onnx_filename']}) 缺失。預期路徑：{model_path.resolve()}。")
+            return gr.Error(f"({config['onnx_filename']}) could not be found。find：{model_path.resolve()}。")
         
         print(f'[Tagger-all]:Loading "{model_id}" from "{model_path}"...')
         try:
@@ -108,14 +117,13 @@ class WD14Tagger:
             
             self.model_loaded = True
             self.current_model_id = model_id
-            gr.Info(f"成功載入模型: {model_id}。")
         except Exception as e:
             self.unload_model() 
-            gr.Error(f"錯誤：模型載入失敗 - {e}")
+            return gr.Error(f"fail to load - {e}")
 
     def predict(self, image, model_id, threshold=0.35):
         if not image:
-            return gr.Info("請先提供圖片"), "---"
+            return gr.Info("Please provide the image first"), "---"
         
         self.load_model(model_id)
 
@@ -131,20 +139,20 @@ class WD14Tagger:
             input_tensor = np.expand_dims(img_array, axis=0)
             
         except Exception as e:
-            return gr.Error(f"錯誤：圖片前處理失敗 - {e}"), "---"
+            return gr.Error(f"Image preprocessing failed - {e}"), "---"
 
         try:
-            print(f"[Tagger-all]正在使用 {model_id} 執行 ONNX 推論...")
+            print(f"[Tagger-all]loadding {model_id}")
             input_name = self.session.get_inputs()[0].name
             output_name = self.session.get_outputs()[0].name
             probs = self.session.run([output_name], {input_name: input_tensor})[0]
             probs = probs.flatten()
         except Exception as e:
-            return gr.Error(f"錯誤：ONNX 推論執行失敗 - {e}"), "---"
+            return gr.Error(f"ONNX inference execution failed - {e}"), "---"
 
         current_tags = self.tags[model_id]
         if len(current_tags) != len(probs):
-             return gr.Error(f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。"), "---"
+             return gr.Error(f"Number of tags ({len(current_tags)}) ,Number of model outputs ({len(probs)}), Mismatch."), "---"
         
         tag_scores = zip(current_tags, probs)
         
@@ -176,7 +184,7 @@ class WD14Tagger:
     def multi_predict(self, images_route, model_id, threshold=0.35):
         tags_strs=dict()
         if not images_route:
-            return gr.Info("請先提供圖片")
+            return gr.Info("Please provide the image first")
         self.load_model(model_id)
         target_size = self.model_configs[model_id]['size']
 
@@ -189,14 +197,14 @@ class WD14Tagger:
             img_array = np.array(image, dtype=np.float32)
             img_array = img_array[:, :, ::-1] # BGR
             input_tensor = np.expand_dims(img_array, axis=0)
-            print(f"[Tagger-all]正在使用 {model_id} 執行 ONNX 推論，current image:{i+1}...")
+            print(f"[Tagger-all]loadding {model_id} ,current image:{i+1}...")
             input_name = self.session.get_inputs()[0].name
             output_name = self.session.get_outputs()[0].name
             probs = self.session.run([output_name], {input_name: input_tensor})[0]
             probs = probs.flatten()
             current_tags = self.tags[model_id]
             if len(current_tags) != len(probs):
-                return gr.Error(f"錯誤：標籤數量 ({len(current_tags)}) 與模型輸出數量 ({len(probs)}) 不匹配。")
+                return gr.Error(f"Number of tags ({len(current_tags)}) ,Number of model outputs ({len(probs)}), Mismatch.")
             tag_scores = zip(current_tags, probs)
             filtered_tags_with_scores = sorted(
                 [(tag, score) for tag, score in tag_scores if score >= threshold],
@@ -222,14 +230,14 @@ class WD14Tagger:
     def folder_predict(self,folder_route,model_id, threshold=0.35):
         image_routes = []
         if not folder_route:
-            return gr.Info("請先提供圖片文件夾路徑")
+            return gr.Info("Please provide the image folder path first")
  
         for filename in os.listdir(folder_route):
             if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
                 image_route = os.path.join(folder_route, filename)
                 image_routes.append(image_route)
         if not image_routes:
-            return gr.Info("文件夾中沒有找到有效的圖片文件")
+            return gr.Info("No valid image files were found in the folder")
         tags_str = self.multi_predict(image_routes, model_id, threshold)
         return tags_str
 
