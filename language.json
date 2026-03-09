@@ -153,6 +153,16 @@
         "繁體中文": "提取的標籤",
         "English": "Extracted Tags",
         "简体中文": "提取的标签"
+    },
+    "Save Output Image":{
+        "繁體中文": "保存輸出圖片",
+        "English": "Save Output Image",
+        "简体中文": "保存输出图片"
+    },
+    "Save Mask Image":{
+        "繁體中文": "保存掩碼圖片",
+        "English": "Save Mask Image",
+        "简体中文": "保存掩码图片"
     }
 
 }
