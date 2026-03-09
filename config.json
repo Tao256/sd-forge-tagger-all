@@ -1,7 +1,0 @@
-{
-    "language": "简体中文",
-    "WD14_MODEL": "wd-vit-tagger-v3",
-    "threshold_slider": 0.35,
-    "florence2_model": "microsoft/Florence-2-large-ft",
-    "florence2_lora": "None"
-}
