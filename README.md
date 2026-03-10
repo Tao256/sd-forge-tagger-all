@@ -1,8 +1,6 @@
 # sd-forge-tagger-all
 
 ### beta-version
-Will continue to update later
-
 A web UI plugin based on a modified `WD14-tagger` for `sd-forge` or `forge neo`, which can use tag models such as `WD14`, `Florence2`, etc.
 
 Support 3 types of language for UI interface:`简体中文`、`繁體中文`、`English`,default `English`.
@@ -26,6 +24,7 @@ The output result will be saved in `"sd-webui\output\tagger_output"`
 ## 独立版本 Standalone version
 1.WD14 Tagger: [https://github.com/Tao256/sd-forge-wd14-tagger](https://github.com/Tao256/sd-forge-wd14-tagger)
 
-2.Florence2: [comming soon](#)
+2.Florence2: [https://github.com/Tao256/sd-forge-florence2-tagger](https://github.com/Tao256/sd-forge-florence2-tagger)
+
 
 
