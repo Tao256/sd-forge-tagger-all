@@ -40,7 +40,7 @@
         "简体中文": "标签阈值"
     },
     "Interrogate": {
-        "繁體中文": "開始分析",
+        "繁體中文": "分析",
         "English": "Interrogate",
         "简体中文": "分析"
     },
@@ -163,6 +163,26 @@
         "繁體中文": "保存掩碼圖片",
         "English": "Save Mask Image",
         "简体中文": "保存掩码图片"
+    },
+    "Show JSON":{
+        "繁體中文": "展示JSON文本",
+        "English": "Show JSON",
+        "简体中文": "展示JSON文本"
+    },
+    "Text Output":{
+        "繁體中文": "文本輸出",
+        "English": "Text Output",
+        "简体中文": "文本输出"
+    },
+    "Image Output":{
+        "繁體中文": "圖像輸出",
+        "English": "Image Output",
+        "简体中文": "图像输出"
+    },
+    "Open Output Directory":{
+        "繁體中文": "打開輸出目錄",
+        "English": "Open Output Directory",
+        "简体中文": "打开输出目录"
     }
 
 }
