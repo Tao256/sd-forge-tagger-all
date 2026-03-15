@@ -3,7 +3,6 @@ import torch
 import torchvision.transforms.functional as F
 from packaging import version
 import io
-import os
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -15,6 +14,7 @@ import re
 import transformers
 from transformers import AutoProcessor, set_seed
 from safetensors.torch import save_file
+import gradio as gr
 
 colormap = ['blue','orange','green','purple','brown','pink','olive','cyan','red',
             'lime','indigo','violet','aqua','magenta','gold','tan','skyblue']
@@ -125,9 +125,9 @@ class Florence2:
         self.model_list = model_list
         self.lora_list = lora_list
         self.prompts = prompts
-        self.tasks=list(prompts.keys())
         self.dtype = list(dtype.keys())
         self.attention_list = attention_list
+        self.florence2_model=None
         self.device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.offload_device=torch.device("cpu")
 
@@ -257,14 +257,12 @@ class Florence2:
         mask_pil = Image.fromarray(mask_np, mode='L')
         return mask_pil
 
-    def encode(self, image, text_input, model_path,precision,attention,lora, task, fill_mask, keep_model_loaded, 
-            num_beams, max_new_tokens, do_sample=True, output_mask_select="", seed=None):
-        image=np.array(image) #turn to numpy array
+    def encode(self, image, text_input, florence2_model, task, num_beams, max_new_tokens,
+               fill_mask=False,do_sample=True, output_mask_select="", seed=None):
         # 处理3维张量 (h, w, c)
         height, width, _ = image.shape
         annotated_image_tensor = None
         mask_tensor = None
-        florence2_model = self.loadmodel(model_path, precision, attention, lora)
         processor = florence2_model['processor']
         model = florence2_model['model']
         dtype = florence2_model['dtype']
@@ -300,7 +298,8 @@ class Florence2:
             use_cache=False,
         )
         results = processor.batch_decode(generated_ids, skip_special_tokens=False)[0]
-        print(results)
+        # print(results)
+
         # cleanup the special tokens from the final list
         if task == 'ocr_with_region':
             clean_results = str(results)       
@@ -325,7 +324,7 @@ class Florence2:
             # Determine mask indexes outside the loop
             if output_mask_select != "":
                 mask_indexes = [n for n in output_mask_select.split(",")]
-                print(mask_indexes)
+                # print(mask_indexes)
             else:
                 mask_indexes = [str(i) for i in range(len(bboxes))]
             # Initialize mask_layer only if needed
@@ -345,10 +344,10 @@ class Florence2:
                         x0, x1 = x1, x0
                         
                     if str(index) in mask_indexes:
-                        print("match index:", str(index), "in mask_indexes:", mask_indexes)
+                        # print("match index:", str(index), "in mask_indexes:", mask_indexes)
                         mask_draw.rectangle([x0, y0, x1, y1], fill=(255, 255, 255))
                     if label in mask_indexes:
-                        print("match label")
+                        # print("match label")
                         mask_draw.rectangle([x0, y0, x1, y1], fill=(255, 255, 255))
                 # Create a Rectangle patch
                 # Ensure y1 is greater than or equal to y0
@@ -439,7 +438,7 @@ class Florence2:
                     # Clamp polygon points to image boundaries
                     _polygon = np.clip(_polygon, [0, 0], [W - 1, H - 1])
                     if len(_polygon) < 3:  
-                        print('Invalid polygon:', _polygon)
+                        # print('Invalid polygon:', _polygon)
                         continue  
                     
                     _polygon = _polygon.reshape(-1).tolist()
@@ -558,13 +557,119 @@ class Florence2:
         else:
             out_mask_tensor = torch.zeros((1,64,64), dtype=torch.float32, device="cpu")
 
-        if not keep_model_loaded:
-            print("Offloading model...")
-            model.to(self.offload_device)
-
-        print(out_tensor.shape)
-        print(out_mask_tensor.shape)
-        out_tensor=self.tensor_to_image(out_tensor)
-        out_mask_tensor=self.mask_tensor_to_image(out_mask_tensor)
-
         return (out_tensor, out_mask_tensor, out_results, out_data)
+    
+    def unload_model(self):
+        if self.florence2_model is None:
+            print("No model is loaded.")
+            return gr.Info("No model is loaded.")
+
+        model = self.florence2_model['model']
+        model = model.to(self.offload_device)
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+            if hasattr(torch.cuda, 'gc'):
+                torch.cuda.gc()
+
+        del self.florence2_model['model']
+        del self.florence2_model['processor']
+        self.florence2_model=None
+        import gc
+        gc.collect()
+
+        print("Model has been offloaded.")
+        return gr.Info("Model has been offloaded.")
+
+
+
+    def predict(self,image, model, lora,task,text_input,num_beams,max_tokens,dtype,attention,is_keep_model_loaded,is_show_json,fill_mask=False,output_type="text"):
+        image=np.array(image) #turn to numpy array
+        if self.florence2_model is None:
+            print('loadding model...')
+            self.florence2_model = self.loadmodel(model, dtype, attention, lora)
+        try:
+            if output_type=="text":
+                output=self.encode(image,text_input,self.florence2_model,task,num_beams,max_tokens)
+                if is_show_json:
+                    print("show json:")
+                    print(output[3])           
+                result=output[2]
+            elif output_type=="image":
+                output=self.encode(image,text_input,self.florence2_model,task,num_beams,max_tokens,fill_mask=fill_mask)
+                out_tensor=self.tensor_to_image(output[0])
+                out_mask_tensor=self.mask_tensor_to_image(output[1])
+                if is_show_json:
+                    print("show json:")
+                    print(output[3])
+                result=([out_tensor],[out_mask_tensor],output[2]) 
+            else:
+                raise "'output_type' is not 'text' or 'image'"
+        finally:
+            if not is_keep_model_loaded:
+                    print("Offloading model...")
+                    self.unload_model()
+        return result
+        
+    def multi_predict(self,images_route,model, lora,task,text_input,num_beams,max_tokens,dtype,attention,is_keep_model_loaded,is_show_json,fill_mask=False,output_type="text"):
+        if not images_route:
+            return gr.Info("Please provide the image first")
+        tags_strs=dict()
+        batch_images=[]
+        batch_images_mask=[]
+        texts_info=[]
+
+        if self.florence2_model is None:
+            print('loadding model...')
+            self.florence2_model = self.loadmodel(model, dtype, attention, lora)
+        try:
+            for i,image_route in enumerate(images_route):
+                image = Image.open(image_route)
+                if image.mode != 'RGB':
+                    image = image.convert("RGB")
+                img = np.array(image)
+                if output_type=="text":
+                    print(f"[Tagger-all] current image:{i+1}/{len(images_route)}...")
+                    output=self.encode(img,text_input,self.florence2_model,task,num_beams,max_tokens)
+                    if is_show_json:
+                        print("show json:")
+                        print(output[3])
+                    route=image_route.split("/")[-1] if "/" in image_route else image_route.split("\\")[-1]
+                    tags_strs[route] = output[2]
+                elif output_type=="image":
+                    print(f"[Tagger-all] current image:{i+1}/{len(images_route)}...")
+                    output=self.encode(img,text_input,self.florence2_model,task,num_beams,max_tokens,fill_mask=fill_mask)
+                    out_tensor=self.tensor_to_image(output[0])
+                    out_mask_tensor=self.mask_tensor_to_image(output[1])
+                    if is_show_json:
+                        print("show json:")
+                        print(output[3])
+                    batch_images.append(out_tensor)
+                    batch_images_mask.append(out_mask_tensor)
+                    texts_info.append(output[2])
+                else:
+                    raise "'output_type' is not 'text' or 'image'"
+        finally:
+            if not is_keep_model_loaded:
+                    print("Offloading model...")
+                    self.unload_model()
+        if output_type=="text":
+            return tags_strs
+        elif output_type=="image":
+            result=(batch_images,batch_images_mask,texts_info)
+            return result
+        
+    def folder_predict(self,folder_route,model, lora,task,text_input,num_beams,max_tokens,dtype,attention,is_keep_model_loaded,is_show_json,fill_mask=False,output_type="text"):
+        if not folder_route:
+            return gr.Info("Please provide the image folder path first")
+        image_routes=[]
+
+        for filename in os.listdir(folder_route):
+            if filename.lower().endswith(('.png', '.jpg', '.jpeg', '.bmp', '.gif')):
+                image_route = os.path.join(folder_route, filename)
+                image_routes.append(image_route)
+        if not image_routes:
+            return gr.Info("No valid image files were found in the folder")
+        result = self.multi_predict(image_routes, model, lora,task,text_input,num_beams,max_tokens,dtype,attention,is_keep_model_loaded,is_show_json,fill_mask,output_type)
+        return result
+
+
